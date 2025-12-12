@@ -32,9 +32,51 @@ class WindowGenerator:
             + 0.08 * np.cos((4 * np.pi * np.arange(window_size)) / (window_size - 1)) \
             if manual else signal.windows.blackman(window_size)
 
+
+class WindowAnalyzer:
+    @staticmethod
+    def calculate_parameters(window_name: str, window_data: np.ndarray, fs: float):
+        w = np.array(window_data)
+        N = len(w)
+        dt = 1 / fs
+
+        t = (np.arange(N) - (N - 1) / 2) * dt
+
+        w_sq = np.abs(w) ** 2
+        E_t = np.sum(w_sq) * dt
+
+        t_bar = np.sum(t * w_sq * dt) / E_t
+        sigma_T_sq = np.sum(((t - t_bar) ** 2) * w_sq * dt) / E_t
+        sigma_T = np.sqrt(sigma_T_sq)
+
+        # --- 2. Frequency Domain ---
+        nfft = 4096
+        W = np.fft.fftshift(np.fft.fft(w, n=nfft)) * dt
+
+        freqs = np.fft.fftshift(np.fft.fftfreq(nfft, d=dt))
+        Omega = 2 * np.pi * freqs
+
+        W_sq = np.abs(W) ** 2
+        pdf_W = W_sq / np.sum(W_sq)
+        Omega_bar = np.sum(Omega * pdf_W)
+
+        sigma_Omega_sq = np.sum(((Omega - Omega_bar) ** 2) * pdf_W)
+        sigma_Omega = np.sqrt(sigma_Omega_sq)
+
+        uncertainty = sigma_T * sigma_Omega
+
+        return {
+            "Window": window_name,
+            "t_bar": t_bar,
+            "sigma_T": sigma_T,
+            "Omega_bar": Omega_bar,
+            "sigma_Omega": sigma_Omega,
+            "Uncertainty": uncertainty
+        }
+
 class STFTCalculator:
     @staticmethod
-    def calculate_STFT(signal: np.ndarray, window: np.ndarray, n_overlap: int, fs: int) -> np.ndarray:
+    def calculate_STFT(signal_array: np.ndarray, window: np.ndarray, n_overlap: int, fs: int) -> np.ndarray:
         N = len(window)
         hop_size = N - n_overlap
         scaling_factor = np.sum(window)
@@ -42,8 +84,8 @@ class STFTCalculator:
         stft_list = []
         time_indices = []
 
-        for i in range(0, len(signal) - N + 1, hop_size):
-            segment = signal[i: i + N]
+        for i in range(0, len(signal_array) - N + 1, hop_size):
+            segment = signal_array[i: i + N]
             windowed_segment = window * segment
 
             dft_result = np.fft.fft(windowed_segment)
@@ -184,6 +226,16 @@ def main():
     plt.savefig(os.path.join(result_dir, "LibrarySpectrogram.png"))
     plt.show()
 
+    print("\n" + "=" * 85)
+    print(f"{'Window':<15} | {'sigma_T (s)':<12} | {'sigma_Omega (rad/s)':<20} | {'Uncertainty':<12}")
+    print("-" * 85)
+
+    for name, _ in window_types:
+        res = WindowAnalyzer.calculate_parameters(name, all_windows[name], fs)
+        print(f"{name:<15} | {res['sigma_T']:<12.5f} | "
+              f"{res['sigma_Omega']:<20.4f} | "
+              f"{res['Uncertainty']:<12.4f}")
+    print("=" * 85 + "\n")
 
 if __name__ == "__main__":
     main()
