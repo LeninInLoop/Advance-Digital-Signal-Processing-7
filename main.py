@@ -117,6 +117,7 @@ def main():
     result_dir = "Results"
     os.makedirs(result_dir, exist_ok=True)
     os.makedirs(os.path.join(result_dir, "Signal Components"), exist_ok=True)
+    os.makedirs(os.path.join(result_dir, "Created Windows"), exist_ok=True)
     # ===================================================================================
     # Create Signals
     # -----------------------------------------------------------------------------------
@@ -181,6 +182,27 @@ def main():
         print(f"{name}:\n", manual_win)
         all_windows[name] = manual_win
 
+    windows_to_plot = [
+        (all_windows["Rectangular"], "Rectangular", "Rectangular.png"),
+        (all_windows["Hanning"], "Hanning", "Hanning.png"),
+        (all_windows["Hamming"], "Hamming", "Hamming.png"),
+        (all_windows["Blackman"], "Blackman", "Blackman.png")
+    ]
+    new_time_vector = np.arange(-64 * 1 / fs, 64 * 1 / fs, 1 / fs)
+    for sig_data, title, filename in windows_to_plot:
+        plt.figure(figsize=(10, 4))
+        plt.plot(new_time_vector, sig_data)
+
+        plt.title(title)
+        plt.xlabel("Time [s]")
+        plt.ylabel("Amplitude")
+        plt.grid(True, alpha=0.3)
+
+        save_path = os.path.join(result_dir,"Created Windows", filename)
+        plt.savefig(save_path)
+        print(f"Saved: {save_path}")
+
+        plt.close()
     # ===================================================================================
     # Calculate STFT Using Windows
     # -----------------------------------------------------------------------------------
